@@ -70,3 +70,7 @@ mke2fs -t ext2 -d ubuntu/ "ext2.img" 1G
 ```
 
 You will likely want to have `dhclient` and `ip`, but the Ubuntu Base lacks them. [Here](https://github.com/AXKuhta/micro_init/releases/download/v0.1/ubuntu_21.04_net_packages.tar) is a bunch of .deb files that you can add into the image and install with `apt install ./*.deb`.
+
+---
+
+Thanks to https://github.com/pranith/nolibc; it helped me figure out how to print stuff in nolibc.
