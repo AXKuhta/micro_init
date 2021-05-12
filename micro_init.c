@@ -78,14 +78,13 @@ void mount_ext2_image() {
 	if (rc) err("Failed to mount the loop into [" TARGET_DIRECTORY "]!\n");
 }
 
+// Bind folder A to folder B
 int mount_bind(char* source, char* destination) {
 	return mount(source, destination, NULL, MS_BIND, NULL);
 }
 
 // Will make the following binds:
 // /dev -> /newroot/dev
-// /dev/shm -> /newroot/dev/shm
-// /dev/pts -> /newroot/dev/pts
 // See Void Linux init scripts to get an insight into starting a Linux system:
 // https://github.com/void-linux/void-runit/tree/master/core-services
 void bind_dev() {
@@ -94,33 +93,40 @@ void bind_dev() {
 	rc = mount_bind("/dev", TARGET_DIRECTORY "/dev");
 	if (rc) err(	"Error binding [/dev] to [" TARGET_DIRECTORY "/dev]\n"
 			"Perhaps /dev is missing in the rootfs you're using?\n" );
-
-	rc = mkdir(TARGET_DIRECTORY "/dev/shm", 0777);
-	if (rc) err(	"Failed to create [" TARGET_DIRECTORY "/dev/shm]\n"	);
-
-	rc = mount("shm", TARGET_DIRECTORY "/dev/shm", "tmpfs", 0, NULL);
-	if (rc) err(    "Error mounting [/dev/shm] into [" TARGET_DIRECTORY "/dev/shm]\n" );
-
-	rc = mkdir(TARGET_DIRECTORY "/dev/pts", 0755);
-	if (rc) err(    "Failed to create [" TARGET_DIRECTORY "/dev/pts]\n"     );
-
-	rc = mount("devpts", TARGET_DIRECTORY "/dev/pts", "devpts", 0, NULL);
-	if (rc) err(    "Error mounting [/dev/pts] into [" TARGET_DIRECTORY "/dev/pts]\n" );
 }
 
-// Will make a fresh mount of proc into /newroot/proc
+// Will make fresh mounts of:
+// /dev/shm 			Ramdisk
+// /dev/pts 			Pseudoterminals
+void mount_shm_pts() {
+	int rc = 0;
+
+	rc = mkdir("/dev/shm", 0777);
+	if (rc) err("Failed to create [/dev/shm]\n");
+
+	rc = mount("shm", "/dev/shm", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/dev/shm]\n");
+
+	rc = mkdir("/dev/pts", 0755);
+	if (rc) err("Failed to create [/dev/pts]\n");
+
+	rc = mount("devpts", "/dev/pts", "devpts", 0, NULL);
+	if (rc) err("Error mounting [/dev/pts]\n");
+}
+
+// Will make a fresh mount of /proc
 // Task managers (And a ton of other stuff) will not work without this mounted
 void mount_procfs() {
-	int rc = mount("proc", TARGET_DIRECTORY "/proc", "proc", 0, NULL);
-	if (rc) err(	"Error mounting procfs into [" TARGET_DIRECTORY "/proc]\n"
+	int rc = mount("proc", "/proc", "proc", 0, NULL);
+	if (rc) err(	"Error mounting procfs into [/proc]\n"
 			"Perhaps /proc is missing in the rootfs you're using?\n"  );
 }
 
-// Will make a fresh mount of sysfs into /newroot/sys
+// Will make a fresh mount of /sys
 // `lsblk` and `df` (And a ton of other stuff) will not work without this mounted
 void mount_sysfs() {
-	int rc = mount("sysfs", TARGET_DIRECTORY "/sys", "sysfs", 0, NULL);
-	if (rc) err(    "Error mounting sysfs into [" TARGET_DIRECTORY "/sys]\n"
+	int rc = mount("sysfs", "/sys", "sysfs", 0, NULL);
+	if (rc) err(    "Error mounting sysfs into [/sys]\n"
 			"Perhaps /sys is missing in the rootfs you're using?\n"  );
 }
 
@@ -128,6 +134,7 @@ void mount_sysfs() {
 // Without chrooting kernel's ELF loader will be unable to find them
 void set_root() {
 	chroot("/newroot");
+	chdir("/");
 }
 
 // Ubuntu Base does not have any init system as it turns out
@@ -206,9 +213,6 @@ int main() {
 
 	mount_ext2_image();
 	bind_dev();
-	mount_procfs();
-	mount_sysfs();
-
 
 	// Fork into two separate processes
 	// Parent will receive shell_pid = child pid
@@ -220,6 +224,9 @@ int main() {
 	// This is useful to inspect the real root
 	if (shell_pid == 0) {
 		set_root();
+		mount_shm_pts();
+		mount_procfs();
+		mount_sysfs();
 		start_every_tty();
 		exec_shell();
 
