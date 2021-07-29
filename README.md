@@ -13,3 +13,16 @@ Annoyingly, Ubuntu Base lacks the packages required to set up a working network 
 
 - [Download Ubuntu Base](http://cdimage.ubuntu.com/ubuntu-base/releases/21.04/release/)
 - [Download `dhclient` and `ip` packages, plus dependencies](https://github.com/AXKuhta/micro_init/releases/download/v0.1/ubuntu_21.04_net_packages.tar)
+
+# List of gotchas
+
+- You _must_ have an empty folder named `dev`
+- You _must_ have an empty folder named `newroot`
+- You _must_ mount root rw
+- Your kernel _must_ have `CONFIG_DEVTMPFS` and `CONFIG_DEVTMPFS_MOUNT` enabled in order to automount `/dev`<br>Theoretically micro_init could do this by itself... Let implementing this be your homework?
+ 
+Example kernel command line:
+
+```
+root=/dev/sda1 rw rootwait init=/micro_init
+```
