@@ -19,7 +19,7 @@ Annoyingly, Ubuntu Base lacks the packages required to set up a working network 
 - You _must_ have an empty folder named `dev`
 - You _must_ have an empty folder named `newroot`
 - You _must_ mount root rw
-- Your kernel _must_ have `CONFIG_DEVTMPFS` and `CONFIG_DEVTMPFS_MOUNT` enabled in order to automount `/dev`<br>Theoretically micro_init could do this by itself... Let implementing this be your homework?
+- Your kernel _must_ have `CONFIG_DEVTMPFS` and `CONFIG_DEVTMPFS_MOUNT` enabled in order to automount `/dev`<br>You know it automounts if you see a line "devtmpfs: mounted" shortly after mounting root<br>Theoretically micro_init could do this by itself... Let implementing this be your homework?
  
 Example kernel command line:
 
