@@ -67,7 +67,7 @@ char* lut[] = { "/dev/loop0",
 void mount_ext2_image() {
 	int ctl_fd = open("/dev/loop-control", O_RDWR, 0);
 
-	if (!ctl_fd)
+	if (ctl_fd < 0)
 		err(	"Failed to open /dev/loop-control;\n"
 			"1. Is folder `dev` missing on real root and devtmpfs didn't initialize?\n"
 			"2. Is loop device support compiled in?\n"					);
@@ -78,10 +78,10 @@ void mount_ext2_image() {
 
 	char* loop_path = lut[loop_num];
 	int loop_fd = open(loop_path, O_RDWR, 0);
-	if (!loop_fd) err("Failed to open the dispensed loop???\n");
+	if (loop_fd < 0) err("Failed to open the dispensed loop???\n");
 
 	int image_fd = open(IMAGE_PATH, O_RDWR, 0);
-	if (!image_fd) err("Failed to open [" IMAGE_PATH "]!\n" );
+	if (image_fd < 0) err("Failed to open [" IMAGE_PATH "]!\n" );
 
 	ioctl(loop_fd, LOOP_SET_FD, image_fd);
 
