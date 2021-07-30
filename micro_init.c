@@ -1,6 +1,18 @@
-// Build with: gcc -fno-asynchronous-unwind-tables -fno-ident -s -Os -nostdlib -static -Itools/include/nolibc/ -o micro_init micro_init.c -lgcc
+// Build with:
+// gcc -nostdlib -static -fno-asynchronous-unwind-tables -fno-ident -s -Os -o micro_init micro_init.c -lgcc
 
-#include <nolibc.h>
+// COMPILER FLAGS EXPLANATION:
+// [REQUIRED] `-nostdlib` tells the compiler to forget about using glibc
+// [REQUIRED] `-static` removes dependency on `/lib64/ld-linux-x86-64.so.2`
+// [OPTIONAL] `-s` will remove debugging information
+// [OPTIONAL] `-Os` instructs to optimize for code size
+// [OPTIONAL] `-fno-ident` will remove the `GCC: (Ubuntu 10.2.0-5ubuntu1~20.04) 10.2.0` string from the file
+// [OPTIONAL] `-fno-asynchronous-unwind-tables` will remove `.eh_frame` section from the file, saving 2 KB
+// [OPTIONAL] `-lgcc` (Must come last) will allow to use __builtin_strlen(), which nolibc can benefit from
+
+// You can take nolibc.h from here:
+// https://github.com/torvalds/linux/blob/master/tools/include/nolibc/nolibc.h
+#include "nolibc.h"
 
 // Just substitute it quickly
 void printf(char* string) {
