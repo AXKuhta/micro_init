@@ -223,19 +223,17 @@ void unmount_root() {
 int main() {
 	printf("= = = Micro Init = = =\n");
 
-	mount_ext2_image();
-	bind_dev();
+	//mount_ext2_image();
+	//bind_dev();
+	//set_root();
 
 	// Fork into two separate processes
 	// Parent will receive shell_pid = child pid
 	// Child will receive shell_pid = 0
 	pid_t shell_pid = fork();
 
-	// If we are the child, chroot and start the shell
-	// PID 0 will stay at true root, thus allowing us to escape the chroot via `cd /proc/1/root`
-	// This is useful to inspect the real root
+	// If we are the child, start the shell
 	if (shell_pid == 0) {
-		set_root();
 		mount_shm_pts();
 		mount_procfs();
 		mount_sysfs();
