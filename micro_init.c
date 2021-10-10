@@ -90,6 +90,14 @@ void mount_ext2_image() {
 	if (rc) err("Failed to mount the loop into [" TARGET_DIRECTORY "]!\n");
 }
 
+// Mount mmcblk0p1 -> /boot
+void mount_boot() {
+	int rc = mount("/dev/mmcblk0p1", "/boot", "vfat", MS_RDONLY, NULL);
+
+	if (rc) err("Failed to mount [/dev/mmcblk0p1] into [/boot]!\n"
+				"Device numeration may be off...\n");
+}
+
 // Bind folder A to folder B
 int mount_bind(char* source, char* destination) {
 	return mount(source, destination, NULL, MS_BIND, NULL);
@@ -234,9 +242,14 @@ int main() {
 
 	// If we are the child, start the shell
 	if (shell_pid == 0) {
+		// Critical mounts
 		mount_shm_pts();
 		mount_procfs();
 		mount_sysfs();
+
+		// Optional mounts
+		mount_boot();
+
 		start_every_tty();
 		exec_shell();
 
