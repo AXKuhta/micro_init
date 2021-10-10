@@ -1,5 +1,5 @@
 // Build with:
-// gcc -nostdlib -static -fno-asynchronous-unwind-tables -fno-ident -s -Os -o micro_init micro_init.c -lgcc
+// aarch64-linux-gnu-gcc-10 -nostdlib -static -fno-asynchronous-unwind-tables -fno-ident -s -Os -o micro_init micro_init.c -lgcc
 
 // COMPILER FLAGS EXPLANATION:
 // [REQUIRED] `-nostdlib` tells the compiler to forget about using glibc
