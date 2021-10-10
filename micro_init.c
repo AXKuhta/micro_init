@@ -22,8 +22,16 @@ void printf(char* string) {
 #define COLOR_YELLOW "\x1b[33m"
 #define COLOR_RESET "\x1b[0m"
 
+// Print a warning but don't stop
+void warn(char* message) {
+	printf(COLOR_YELLOW "[WARNING] ");
+	printf(message);
+	printf(COLOR_RESET);
+}
+
+// Print a error and stop
 void err(char* message) {
-	printf(COLOR_YELLOW);
+	printf(COLOR_YELLOW "[ERROR] ");
 	printf(message);
 	printf("Stopping...");
 
@@ -94,7 +102,7 @@ void mount_ext2_image() {
 void mount_boot() {
 	int rc = mount("/dev/mmcblk0p1", "/boot", "vfat", MS_RDONLY, NULL);
 
-	if (rc) err("Failed to mount [/dev/mmcblk0p1] into [/boot]!\n"
+	if (rc) warn("Failed to mount [/dev/mmcblk0p1] into [/boot]!\n"
 				"Device numeration may be off...\n");
 }
 
