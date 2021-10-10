@@ -184,6 +184,10 @@ void exec_shell() {
 		err("exec_shell: failed to start shell\n");
 }
 
+//
+// Ctrl + Alt + F2 to F12 terminals
+//
+
 void exec_agetty(char* tty) {
 	pid_t agetty_pid = fork();
 
@@ -226,6 +230,75 @@ void start_every_tty() {
 	}
 }
 
+
+//
+// Wi-Fi networking
+//
+
+void exec_wpasupplicant() {
+	char* argv[] = { "wpa_supplicant", "-Dnl80211", "-iwlan0", "-c/boot/wpa_supplicant.conf", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	int exitcode = 0;
+
+	// Restart wpa_supplicant if it was killed
+	// Do not keep restarting it if it keeps exiting
+	// It's unlikely it will suddenly start working
+	while (1) {
+		pid_t ws_pid = fork();
+
+		if (ws_pid < 0) {
+			warn("exec_wpasupplicant: fork error\n");
+			return;
+		}
+
+		// Child: run wpa_supplicant
+		if (ws_pid == 0) {
+			int rc = execve("/sbin/wpa_supplicant", argv, envp);
+
+			if (rc) {
+				warn("exec_wpasupplicant: execve error\n");
+				exit(1); // Alert the parent using a nonzero exitcode
+			}
+
+			// Should never reach
+			err("Flow bugcheck");
+		}
+
+		// Parent: wait for child to exit
+		int rc = waitpid(ws_pid, &exitcode, 0);
+
+		if (rc < 0) {
+			warn("exec_wpasupplicant: waitpid error\n");
+			break;
+		}
+
+		if WEXITSTATUS(exitcode) {
+			warn("wpa_supplicant exited with an error\n");
+			break;
+		}
+
+		warn("wpa_supplicant was killed or exited without an error; restarting...\n");
+	}
+
+	exit(0);
+}
+
+void start_wifi() {
+	pid_t pid = fork();
+
+	if (pid < 0)
+		warn("start_wifi: fork error\n");
+
+	if (pid == 0)
+		exec_wpasupplicant();
+}
+
+
+//
+// Shutdown sequence
+//
+
 #define MNT_DETACH 2
 
 // For clean shutdowns
@@ -235,6 +308,11 @@ void unmount_root() {
 	if (rc)
 		err("unmount_root: failed to unmount\n");
 }
+
+
+//
+// Startup sequence
+//
 
 int main() {
 	printf("= = = Micro Init = = =\n");
@@ -258,7 +336,11 @@ int main() {
 		// Optional mounts
 		mount_boot();
 
+		// Start restart-capable stuff
 		start_every_tty();
+		start_wifi();
+
+		// Transfer over to bash
 		exec_shell();
 
 		// Function above should never return
