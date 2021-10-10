@@ -39,6 +39,75 @@ void err(char* message) {
 	}
 }
 
+
+// Start the specified program and monitor it
+// If it exited without an error, restart
+// If it was killed, restart
+//
+// Do not keep restarting it if it keeps exiting with an error
+// It's unlikely it will suddenly start working
+//
+// Used for `wpa_supplicant` and `sshd`
+//
+void keep_restarting(char* path, char* argv[], char* envp[]) {
+
+	// Version of warn() that takes two arguments
+	// Abusing the function scope
+	void warn(char* origin, char* message) {
+		printf(COLOR_YELLOW "[WARNING] [");
+		printf(origin);
+		printf("] ");
+		printf(message);
+		printf(COLOR_RESET);
+	}
+
+	int exitcode = 0;
+
+	while (1) {
+		pid_t ws_pid = fork();
+
+		if (ws_pid < 0) {
+			warn(path, "Fork error\n");
+			return;
+		}
+
+		// Child: run wpa_supplicant
+		if (ws_pid == 0) {
+			int rc = execve(path, argv, envp);
+
+			if (rc) {
+				warn(path, "Execve error\n");
+				exit(1); // Alert the parent using a nonzero exitcode
+			}
+
+			// Should never reach
+			err("Flow bugcheck");
+		}
+
+		// Parent: wait for child to exit
+		int rc = waitpid(ws_pid, &exitcode, 0);
+
+		if (rc < 0) {
+			warn(path, "Waitpid error\n");
+			break;
+		}
+
+		if WEXITSTATUS(exitcode) {
+			warn(path, "Exited with an error\n");
+			break;
+		}
+
+		warn(path, "Was killed or exited without an error; restarting...\n");
+	}
+
+	exit(0);
+}
+
+
+//
+// Disk image mounts
+//
+
 // Hostile environment, no easy way to build strings
 // Just keep a bunch of prebuilt ones
 char* lut[] = { "/dev/loop0",
@@ -98,13 +167,10 @@ void mount_ext2_image() {
 	if (rc) err("Failed to mount the loop into [" TARGET_DIRECTORY "]!\n");
 }
 
-// Mount mmcblk0p1 -> /boot
-void mount_boot() {
-	int rc = mount("/dev/mmcblk0p1", "/boot", "vfat", MS_RDONLY, NULL);
 
-	if (rc) warn("Failed to mount [/dev/mmcblk0p1] into [/boot]!\n"
-				"Device numeration may be off...\n");
-}
+//
+// Sysfs mounts
+//
 
 // Bind folder A to folder B
 int mount_bind(char* source, char* destination) {
@@ -158,12 +224,35 @@ void mount_sysfs() {
 			"Perhaps /sys is missing in the rootfs you're using?\n"  );
 }
 
+
+//
+// Device mounts
+//
+
+// Mount mmcblk0p1 -> /boot
+void mount_boot() {
+	int rc = mount("/dev/mmcblk0p1", "/boot", "vfat", MS_RDONLY, NULL);
+
+	if (rc) warn("Failed to mount [/dev/mmcblk0p1] into [/boot]!\n"
+				"Device numeration may be off...\n");
+}
+
+
+//
+// Chroot
+//
+
 // Executables have a hardcoded list of paths with the .so files they need
 // Without chrooting kernel's ELF loader will be unable to find them
 void set_root() {
 	chroot("/newroot");
 	chdir("/");
 }
+
+
+//
+// Root shell, the first thing that greets you
+//
 
 // Ubuntu Base does not have any init system as it turns out
 // Just launch bash then
@@ -235,63 +324,55 @@ void start_every_tty() {
 // Wi-Fi networking
 //
 
-void exec_wpasupplicant() {
+void start_wifi() {
 	char* argv[] = { "wpa_supplicant", "-Dnl80211", "-iwlan0", "-c/boot/wpa_supplicant.conf", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
-	int exitcode = 0;
-
-	// Restart wpa_supplicant if it was killed
-	// Do not keep restarting it if it keeps exiting
-	// It's unlikely it will suddenly start working
-	while (1) {
-		pid_t ws_pid = fork();
-
-		if (ws_pid < 0) {
-			warn("exec_wpasupplicant: fork error\n");
-			return;
-		}
-
-		// Child: run wpa_supplicant
-		if (ws_pid == 0) {
-			int rc = execve("/sbin/wpa_supplicant", argv, envp);
-
-			if (rc) {
-				warn("exec_wpasupplicant: execve error\n");
-				exit(1); // Alert the parent using a nonzero exitcode
-			}
-
-			// Should never reach
-			err("Flow bugcheck");
-		}
-
-		// Parent: wait for child to exit
-		int rc = waitpid(ws_pid, &exitcode, 0);
-
-		if (rc < 0) {
-			warn("exec_wpasupplicant: waitpid error\n");
-			break;
-		}
-
-		if WEXITSTATUS(exitcode) {
-			warn("wpa_supplicant exited with an error\n");
-			break;
-		}
-
-		warn("wpa_supplicant was killed or exited without an error; restarting...\n");
-	}
-
-	exit(0);
-}
-
-void start_wifi() {
 	pid_t pid = fork();
 
 	if (pid < 0)
 		warn("start_wifi: fork error\n");
 
 	if (pid == 0)
-		exec_wpasupplicant();
+		keep_restarting("/sbin/wpa_supplicant", argv, envp);
+}
+
+
+//
+// SSH server
+//
+
+/*void exec_ssh_keygen() {
+	char* argv[] = { "ssh-keygen", "-A", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	pid_t pid = fork();
+
+	if (pid < 0)
+		warn("exec_ssh_keygen: fork error\n");
+
+	if (pid == 0) {
+		int rc = execve("/sbin/ssh-keygen", argv, envp);
+
+		if (rc) {
+			warn("exec_ssh_keygen: execve error\n");
+			exit(1);
+		}
+
+	}
+}*/
+
+void start_ssh() {
+	char* argv[] = { "/sbin/sshd", "-D", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	pid_t pid = fork();
+
+	if (pid < 0)
+		warn("start_ssh: fork error\n");
+
+	if (pid == 0)
+		keep_restarting("/sbin/sshd", argv, envp);
 }
 
 
@@ -339,6 +420,7 @@ int main() {
 		// Start restart-capable stuff
 		start_every_tty();
 		start_wifi();
+		start_ssh();
 
 		// Transfer over to bash
 		exec_shell();
