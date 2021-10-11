@@ -448,29 +448,19 @@ void start_dhcp() {
 // SSH server
 //
 
-/*void exec_ssh_keygen() {
+void exec_ssh_keygen() {
 	char* argv[] = { "ssh-keygen", "-A", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
-	pid_t pid = fork();
-
-	if (pid < 0)
-		warn("exec_ssh_keygen: fork error\n");
-
-	if (pid == 0) {
-		int rc = execve("/sbin/ssh-keygen", argv, envp);
-
-		if (rc) {
-			warn("exec_ssh_keygen: execve error\n");
-			exit(1);
-		}
-
-	}
-}*/
+	wait_for("/bin/ssh-keygen", argv, envp);
+}
 
 void start_ssh() {
 	char* argv[] = { "/sbin/sshd", "-D", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	// Ensure we have host keys
+	exec_ssh_keygen();
 
 	pid_t pid = fork();
 
