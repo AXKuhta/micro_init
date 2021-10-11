@@ -386,6 +386,19 @@ void start_every_tty() {
 
 
 //
+// Watchdog
+//
+
+void start_watchdog() {
+	char* argv[] = { "watchdog", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	// Let it daemonize itself
+	wait_for("/sbin/watchdog", argv, envp);
+}
+
+
+//
 // Wi-Fi networking
 //
 
@@ -507,6 +520,7 @@ int main() {
 
 		// Start restart-capable stuff
 		start_every_tty();
+		start_watchdog();
 		start_wifi();
 		start_dhcp();
 		start_ssh();
