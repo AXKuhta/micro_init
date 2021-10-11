@@ -426,8 +426,8 @@ void start_wifi() {
 //
 // Example script:
 // #!/bin/sh
-// ip addr add ${new_ip_address} dev ${interface}			# Get LAN working
-// ip route add default via 192.168.1.1 dev ${interface}	# Get WAN working (Your router's IP might be different)
+// ip addr add ${new_ip_address}/${new_subnet_mask} dev ${interface}		# Get LAN working
+// ip route add default via 192.168.1.1 dev ${interface}					# Get WAN working (Your router's IP might be different)
 //
 // This actually works, although it doesnt remove expired IPs and will eventually cause a mess
 // Run `dhclient wlan0 -d -sf /bin/env` to get an overview of the available arguments
