@@ -422,9 +422,17 @@ void start_wifi() {
 
 // Usually dhclient fires a whole script in `/sbin/dhclient-script` when it obtained an IP
 // This script, unfortunately, really doesn't work well on a system with read-only root
-// It works but produces a lot of logspam
+// You will have to substitute it with a `dhcp-script.sh` file on the /boot patition
+//
+// Example script:
+// #!/bin/sh
+// ip addr add ${new_ip_address} dev ${interface}
+//
+// This actually works, although it doesnt remove expired IPs and will eventually cause a mess
+// Run `dhclient wlan0 -d -sf /bin/env` to get an overview of the available arguments
+// And take a look at the contents of the original `/sbin/dhclient-script`
 void start_dhcp() {
-	char* argv[] = { "dhclient", "wlan0", "-d", NULL };
+	char* argv[] = { "dhclient", "wlan0", "-d", "-sf", "/boot/dhcp-script.sh", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	pid_t pid = fork();
