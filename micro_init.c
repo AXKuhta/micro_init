@@ -344,10 +344,9 @@ void start_wifi() {
 
 // Usually dhclient fires a whole script in `/sbin/dhclient-script` when it obtained an IP
 // This script, unfortunately, really doesn't work well on a system with read-only root
-// Disable this script by adding `-sf /bin/true`
-// We still have full DHCP functionality without it
+// It works but produces a lot of logspam
 void start_dhcp() {
-	char* argv[] = { "dhclient", "wlan0", "-d", "-sf", "/bin/true", NULL };
+	char* argv[] = { "dhclient", "wlan0", "-d", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	pid_t pid = fork();
