@@ -92,7 +92,7 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 
 		if (rc < 0) {
 			warn(path, "Waitpid error\n");
-			break;
+			return;
 		}
 
 		if WEXITSTATUS(exitcode) {
@@ -148,8 +148,10 @@ void wait_for(char* path, char* argv[], char* envp[]) {
 	// Parent: wait for child to exit
 	int rc = waitpid(pid, &exitcode, 0);
 
-	if (rc < 0)
+	if (rc < 0) {
 		warn(path, "Waitpid error\n");
+		return;
+	}
 
 	if WEXITSTATUS(exitcode)
 		warn(path, "Exited with an error\n");
