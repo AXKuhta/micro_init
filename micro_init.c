@@ -77,7 +77,10 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 
 			if (rc) {
 				warn(path, "Execve error\n");
-				exit(1); // Alert the parent using a nonzero exitcode
+				
+				// Hang
+				while (1) {
+				}
 			}
 
 			// Should never reach
@@ -100,7 +103,56 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 		warn(path, "Was killed or exited without an error; restarting...\n");
 	}
 
-	exit(0);
+	// Hang
+	while (1) {
+	}
+}
+
+void wait_for(char* path, char* argv[], char* envp[]) {
+
+	// Version of warn() that takes two arguments
+	// Abusing the function scope
+	void warn(char* origin, char* message) {
+		printf(COLOR_YELLOW "[WARNING] [");
+		printf(origin);
+		printf("] ");
+		printf(message);
+		printf(COLOR_RESET);
+	}
+
+	int exitcode = 0;
+
+	pid_t pid = fork();
+
+	if (pid < 0) {
+		warn(path, "Fork error\n");
+		return;
+	}
+
+	// Child: run the command
+	if (pid == 0) {
+		int rc = execve(path, argv, envp);
+
+		if (rc) {
+			warn(path, "Execve error\n");
+			
+			// Hang
+			while (1) {
+			}
+		}
+
+		// Should never reach
+		err("Flow bugcheck");
+	}
+
+	// Parent: wait for child to exit
+	int rc = waitpid(pid, &exitcode, 0);
+
+	if (rc < 0)
+		warn(path, "Waitpid error\n");
+
+	if WEXITSTATUS(exitcode)
+		warn(path, "Exited with an error\n");
 }
 
 
@@ -274,6 +326,17 @@ void exec_shell() {
 }
 
 //
+// Kernel module loading
+//
+
+void exec_modprobe() {
+	char* argv[] = { "modprobe", "-a", "brcmfmac", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/sbin/modprobe", argv, envp);
+}
+
+//
 // Ctrl + Alt + F2 to F12 terminals
 //
 
@@ -436,6 +499,9 @@ int main() {
 
 		// Optional mounts
 		mount_boot();
+
+		// Load firmware-dependent modules
+		exec_modprobe();
 
 		// Start restart-capable stuff
 		start_every_tty();
