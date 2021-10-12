@@ -278,6 +278,38 @@ void mount_sysfs() {
 			"Perhaps /sys is missing in the rootfs you're using?\n"  );
 }
 
+// Will make a fresh mount of /run
+// Repicates the mount structure WSL1 uses
+// `watchdog` wants it read-write to store temporary files
+void mount_run() {
+	int rc = 0;
+
+	rc = mount("tmpfs", "/run", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run]\n"
+				"Perhaps /run is missing in the rootfs you're using?");
+
+	// /run/lock rwxrwxrwx
+	rc = mkdir("/run/lock", 0777);
+	if (rc) err("Failed to create [/run/lock]\n");
+
+	rc = mount("tmpfs", "/run/lock", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/lock]\n");
+
+	// /run/shm rwxrwxrwx
+	rc = mkdir("/run/shm", 0777);
+	if (rc) err("Failed to create [/run/shm]\n");
+
+	rc = mount("shm", "/run/shm", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/shm]\n");
+
+	// /run/user rwxr-xr-x
+	rc = mkdir("/run/user", 0755);
+	if (rc) err("Failed to create [/run/user]\n");
+
+	rc = mount("tmpfs", "/run/user", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/user]\n");
+}
+
 
 //
 // Device mounts
@@ -533,6 +565,7 @@ int main() {
 		mount_shm_pts();
 		mount_procfs();
 		mount_sysfs();
+		mount_run();
 
 		// Optional mounts
 		mount_boot();
