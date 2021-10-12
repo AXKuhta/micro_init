@@ -390,11 +390,16 @@ void start_every_tty() {
 //
 
 void start_watchdog() {
-	char* argv[] = { "watchdog", NULL };
+	char* argv[] = { "watchdog", "-F", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
-	// Let it daemonize itself
-	wait_for("/sbin/watchdog", argv, envp);
+	pid_t pid = fork();
+
+	if (pid < 0)
+		warn("start_watchdog: fork error\n");
+
+	if (pid == 0)
+		keep_restarting("/sbin/watchdog", argv, envp);
 }
 
 
