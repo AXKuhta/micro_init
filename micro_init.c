@@ -497,6 +497,12 @@ void start_ssh() {
 	char* argv[] = { "/sbin/sshd", "-D", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
+	// The "privilege separation directory"
+	int rc = mkdir("/run/sshd", 0755);
+
+	if (rc)
+		warn("Failed to create [/run/sshd]\n");
+
 	// Ensure we have host keys
 	exec_ssh_keygen();
 
