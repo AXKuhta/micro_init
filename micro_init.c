@@ -517,24 +517,6 @@ void start_ssh() {
 
 
 //
-// DDNS script
-//
-
-void start_ddns() {
-	char* argv[] = { "ddns.sh", NULL };
-	char* envp[] = { "HOME=/", "TERM=linux", NULL };
-
-	pid_t pid = fork();
-
-	if (pid < 0)
-		warn("start_ddns: fork error\n");
-
-	if (pid == 0)
-		keep_restarting("/boot/ddns.sh", argv, envp);
-}
-
-
-//
 // Shutdown sequence
 //
 
@@ -584,7 +566,6 @@ int main() {
 		start_watchdog();
 		start_wifi();
 		start_dhcp();
-		start_ddns();
 		start_ssh();
 
 		// Transfer over to bash
