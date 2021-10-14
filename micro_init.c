@@ -364,10 +364,22 @@ void exec_shell() {
 //
 
 void exec_modprobe() {
-	char* argv[] = { "modprobe", "-a", "brcmfmac", NULL };
+	char* argv[] = { "modprobe", "-a", "brcmfmac", NULL }; // Load firmware-dependent modules
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/sbin/modprobe", argv, envp);
+}
+
+
+//
+// Set hostname
+//
+
+void exec_hostname() {
+	char* argv[] = { "hostname", "-F", "/etc/hostname", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/bin/hostname", argv, envp);
 }
 
 //
@@ -558,8 +570,9 @@ int main() {
 		// Optional mounts
 		mount_boot();
 
-		// Load firmware-dependent modules
+		// Oneshot operations
 		exec_modprobe();
+		exec_hostname();
 
 		// Start restart-capable stuff
 		start_every_tty();
