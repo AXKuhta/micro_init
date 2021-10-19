@@ -364,7 +364,7 @@ void exec_shell() {
 //
 
 void exec_modprobe() {
-	char* argv[] = { "modprobe", "-a", "brcmfmac", NULL }; // Load firmware-dependent modules
+	char* argv[] = { "modprobe", "-a", "brcmfmac", "bcm2835_isp", NULL }; // Load firmware-dependent modules
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/sbin/modprobe", argv, envp);
