@@ -325,6 +325,20 @@ void mount_boot() {
 
 
 //
+// Symlinks
+//
+
+// Make /dev/fd point to /proc/self/fd
+// This is required for process substitution to work, i.e. bash <(echo 123)
+// Also used by certain programs like wg-quick
+void symlink_dev_fd() {
+	int rc = symlink("/proc/self/fd", "/dev/fd");
+
+	if (rc) err("Error symlinking [/dev/fd] -> [/proc/self/fd]\n");
+}
+
+
+//
 // Chroot
 //
 
@@ -569,6 +583,9 @@ int main() {
 
 		// Optional mounts
 		mount_boot();
+
+		// Symlinks
+		symlink_dev_fd();
 
 		// Oneshot operations
 		exec_modprobe();
