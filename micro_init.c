@@ -39,6 +39,31 @@ void err(char* message) {
 	}
 }
 
+// Write a string to file
+void echo(char* str, char* destination) {
+	int fd = open(destination, O_RDWR, 0);
+
+	if (fd < 0) {
+		printf(COLOR_YELLOW "[WARNING] Failed to open [");
+		printf(destination);
+		printf("]\n" COLOR_RESET);
+
+		return;
+	}
+
+	int rc = write(fd, str, strlen(str));
+
+	if (rc < 0) {
+		printf(COLOR_YELLOW "[WARNING] Failed to write [");
+		printf(str);
+		printf("] to [");
+		printf(destination);
+		printf("]\n" COLOR_RESET);
+	}
+
+	close(fd);
+}
+
 
 // Start the specified program and monitor it
 // If it exited without an error, restart
@@ -388,7 +413,7 @@ void exec_shell() {
 // Instead, we load them after mounting root, using `modprobe` from `kmod` package
 // We also yield a thousand times to (hopefully) let the firmware uploads complete
 void exec_modprobe() {
-	char* argv[] = { "modprobe", "-a", "brcmfmac", "bcm2835_isp", NULL }; // Load firmware-dependent modules
+	char* argv[] = { "modprobe", "-a", "brcmfmac", "bcm2835_isp", "tcp_bbr", NULL }; // Load firmware-dependent modules
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/sbin/modprobe", argv, envp);
@@ -408,6 +433,18 @@ void exec_hostname() {
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/bin/hostname", argv, envp);
+}
+
+
+//
+// Sysctl
+//
+
+// Usually this is done using `sysctl`
+// But we can avoid using it, saving us a fork()
+void apply_sysctl() {
+	echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 	// Switch to a better congestion control algorithm
+	echo("1", "/proc/sys/net/ipv4/ip_forward");			// Allow packets to jump between interfaces
 }
 
 
@@ -605,6 +642,7 @@ int main() {
 		// Oneshot operations
 		exec_modprobe();
 		exec_hostname();
+		apply_sysctl();
 
 		// Start restart-capable stuff
 		start_every_tty();
