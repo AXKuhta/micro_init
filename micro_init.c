@@ -373,15 +373,29 @@ void exec_shell() {
 		err("exec_shell: failed to start shell\n");
 }
 
+
 //
 // Kernel module loading
 //
 
+// Sometimes modules need to upload microcode/firmware to the device
+// Kernel's implementation currently has problems:
+//
+// 1. Firmware loading does not respect `rootwait` option
+// 2. There is no `firmwarewait` option
+//
+// Because of this we can't embed certain modules into the kernel
+// Instead, we load them after mounting root, using `modprobe` from `kmod` package
+// We also yield a thousand times to (hopefully) let the firmware uploads complete
 void exec_modprobe() {
 	char* argv[] = { "modprobe", "-a", "brcmfmac", "bcm2835_isp", NULL }; // Load firmware-dependent modules
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/sbin/modprobe", argv, envp);
+
+	for (int i = 0; i < 1000; i++) {
+		sched_yield();
+	}
 }
 
 
@@ -395,6 +409,7 @@ void exec_hostname() {
 
 	wait_for("/bin/hostname", argv, envp);
 }
+
 
 //
 // Ctrl + Alt + F2 to F12 terminals
