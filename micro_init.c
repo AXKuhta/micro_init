@@ -443,8 +443,9 @@ void exec_hostname() {
 // Usually this is done using `sysctl`
 // But we can avoid using it, saving us a fork()
 void apply_sysctl() {
-	echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 	// Switch to a better congestion control algorithm
-	echo("1", "/proc/sys/net/ipv4/ip_forward");			// Allow packets to jump between interfaces
+	echo("ondemand", "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor");	// We may have booted with `performance` or `powersave`
+	echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 			// Switch to a better congestion control algorithm
+	echo("1", "/proc/sys/net/ipv4/ip_forward");					// Allow packets to jump between interfaces
 }
 
 
