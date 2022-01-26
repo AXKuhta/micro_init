@@ -412,8 +412,15 @@ void exec_shell() {
 // Because of this we can't embed certain modules into the kernel
 // Instead, we load them after mounting root, using `modprobe` from `kmod` package
 // We also yield a thousand times to (hopefully) let the firmware uploads complete
+//
+// The chain of i2c_bcm2835 vc4 snd_soc_hdmi_codec is required for /dev/dri to appear
+// Loading vc4 alone will just cause the screen to go black
+// It sits there waiting for i2c DDC and HDMI sound
+// WARNING: `v3d` is the RPi 4 variant of the OpenGL driver, do not probe it on RPi 3
+//
+// bcm2835_isp loads alone, makes `raspistill` and `raspivid` work
 void exec_modprobe() {
-	char* argv[] = { "modprobe", "-a", "brcmfmac", "bcm2835_isp", "tcp_bbr", NULL }; // Load firmware-dependent modules
+	char* argv[] = { "modprobe", "-a", "brcmfmac", "tcp_bbr", "i2c_bcm2835", "vc4", "snd_soc_hdmi_codec", "bcm2835_isp", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
 
 	wait_for("/sbin/modprobe", argv, envp);
