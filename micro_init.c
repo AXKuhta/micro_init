@@ -22,14 +22,52 @@ void printf(char* string) {
 #define COLOR_YELLOW "\x1b[33m"
 #define COLOR_RESET "\x1b[0m"
 
+// Print a warning but don't stop
+void warn(char* message) {
+	printf(COLOR_YELLOW "[WARNING] ");
+	printf(message);
+	printf(COLOR_RESET);
+}
+
+// Print a error and stop
 void err(char* message) {
-	printf(COLOR_YELLOW);
+	printf(COLOR_YELLOW "[ERROR] ");
 	printf(message);
 	printf("Stopping...");
 
 	while (1) {
 	}
 }
+
+// Write a string to file
+void echo(char* str, char* destination) {
+	int fd = open(destination, O_RDWR, 0);
+
+	if (fd < 0) {
+		printf(COLOR_YELLOW "[WARNING] Failed to open [");
+		printf(destination);
+		printf("]\n" COLOR_RESET);
+
+		return;
+	}
+
+	int rc = write(fd, str, strlen(str));
+
+	if (rc < 0) {
+		printf(COLOR_YELLOW "[WARNING] Failed to write [");
+		printf(str);
+		printf("] to [");
+		printf(destination);
+		printf("]\n" COLOR_RESET);
+	}
+
+	close(fd);
+}
+
+
+//
+// Disk image mounts
+//
 
 // Hostile environment, no easy way to build strings
 // Just keep a bunch of prebuilt ones
@@ -90,6 +128,11 @@ void mount_ext2_image() {
 	if (rc) err("Failed to mount the loop into [" TARGET_DIRECTORY "]!\n");
 }
 
+
+//
+// Sysfs mounts
+//
+
 // Bind folder A to folder B
 int mount_bind(char* source, char* destination) {
 	return mount(source, destination, NULL, MS_BIND, NULL);
@@ -142,12 +185,68 @@ void mount_sysfs() {
 			"Perhaps /sys is missing in the rootfs you're using?\n"  );
 }
 
+// Will make a fresh mount of /run
+// Repicates the mount structure WSL1 uses
+// `sshd` and `watchdog` want it to store temporary files
+void mount_run() {
+	int rc = 0;
+
+	rc = mount("tmpfs", "/run", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run]\n"
+				"Perhaps /run is missing in the rootfs you're using?");
+
+	// /run/lock rwxrwxrwx
+	rc = mkdir("/run/lock", 0777);
+	if (rc) err("Failed to create [/run/lock]\n");
+
+	rc = mount("tmpfs", "/run/lock", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/lock]\n");
+
+	// /run/shm rwxrwxrwx
+	rc = mkdir("/run/shm", 0777);
+	if (rc) err("Failed to create [/run/shm]\n");
+
+	rc = mount("shm", "/run/shm", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/shm]\n");
+
+	// /run/user rwxr-xr-x
+	rc = mkdir("/run/user", 0755);
+	if (rc) err("Failed to create [/run/user]\n");
+
+	rc = mount("tmpfs", "/run/user", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/run/user]\n");
+}
+
+
+//
+// Symlinks
+//
+
+// Make /dev/fd point to /proc/self/fd
+// This is required for process substitution to work, i.e. bash <(echo 123)
+// Also used by certain programs like wg-quick
+void symlink_dev_fd() {
+	int rc = symlink("/proc/self/fd", "/dev/fd");
+
+	if (rc) err("Error symlinking [/dev/fd] -> [/proc/self/fd]\n");
+}
+
+
+//
+// Chroot
+//
+
 // Executables have a hardcoded list of paths with the .so files they need
 // Without chrooting kernel's ELF loader will be unable to find them
 void set_root() {
 	chroot("/newroot");
 	chdir("/");
 }
+
+
+//
+// Root shell, the first thing that greets you
+//
 
 // Ubuntu Base does not have any init system as it turns out
 // Just launch bash then
@@ -167,6 +266,23 @@ void exec_shell() {
 	if (rc)
 		err("exec_shell: failed to start shell\n");
 }
+
+
+//
+// Sysctl
+//
+
+// Usually this is done using `sysctl`
+// But we can avoid using it, saving us a fork()
+void apply_sysctl() {
+	echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 			// Switch to a better congestion control algorithm
+	echo("1", "/proc/sys/net/ipv4/ip_forward");					// Allow packets to jump between interfaces
+}
+
+
+//
+// Ctrl + Alt + F2 to F12 terminals
+//
 
 void exec_agetty(char* tty) {
 	pid_t agetty_pid = fork();
@@ -210,6 +326,11 @@ void start_every_tty() {
 	}
 }
 
+
+//
+// Shutdown sequence
+//
+
 #define MNT_DETACH 2
 
 // For clean shutdowns
@@ -220,26 +341,45 @@ void unmount_root() {
 		err("unmount_root: failed to unmount\n");
 }
 
+
+//
+// Startup sequence
+//
+
 int main() {
 	printf("= = = Micro Init = = =\n");
 
-	mount_ext2_image();
-	bind_dev();
+
+	// If you call set_root() from PID 2 after the fork():
+	// PID 1 will stay at true root, thus allowing you to escape the chroot via `cd /proc/1/root`
+	// This is useful to inspect the real root
+	//mount_ext2_image();
+	//bind_dev();
+	//set_root();
 
 	// Fork into two separate processes
 	// Parent will receive shell_pid = child pid
 	// Child will receive shell_pid = 0
 	pid_t shell_pid = fork();
 
-	// If we are the child, chroot and start the shell
-	// PID 0 will stay at true root, thus allowing us to escape the chroot via `cd /proc/1/root`
-	// This is useful to inspect the real root
+	// If we are the child, start the shell
 	if (shell_pid == 0) {
-		set_root();
+		// Critical mounts
 		mount_shm_pts();
 		mount_procfs();
 		mount_sysfs();
+		mount_run();
+
+		// Symlinks
+		symlink_dev_fd();
+
+		// Oneshot operations
+		apply_sysctl();
+
+		// Start restart-capable stuff
 		start_every_tty();
+
+		// Transfer over to bash
 		exec_shell();
 
 		// Function above should never return
@@ -255,7 +395,7 @@ int main() {
 
 		printf(COLOR_YELLOW "It is now safe to turn off your computer\n" COLOR_RESET);
 
-		while (1) { 
+		while (1) {
 			// Wait indefinitely
 		}
 	}
