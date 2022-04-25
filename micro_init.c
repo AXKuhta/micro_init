@@ -65,6 +65,124 @@ void echo(char* str, char* destination) {
 }
 
 
+// Start the specified program and monitor it
+// If it exited without an error, restart
+// If it was killed, restart
+//
+// Do not keep restarting it if it keeps exiting with an error
+// It's unlikely it will suddenly start working
+//
+// Used for `wpa_supplicant` and `sshd`
+//
+void keep_restarting(char* path, char* argv[], char* envp[]) {
+
+	// Version of warn() that takes two arguments
+	// Abusing the function scope
+	void warn(char* origin, char* message) {
+		printf(COLOR_YELLOW "[WARNING] [");
+		printf(origin);
+		printf("] ");
+		printf(message);
+		printf(COLOR_RESET);
+	}
+
+	int exitcode = 0;
+
+	while (1) {
+		pid_t ws_pid = fork();
+
+		if (ws_pid < 0) {
+			warn(path, "Fork error\n");
+			return;
+		}
+
+		// Child: run wpa_supplicant
+		if (ws_pid == 0) {
+			int rc = execve(path, argv, envp);
+
+			if (rc) {
+				warn(path, "Execve error\n");
+				
+				// Hang
+				while (1) {
+				}
+			}
+
+			// Should never reach
+			err("Flow bugcheck");
+		}
+
+		// Parent: wait for child to exit
+		int rc = waitpid(ws_pid, &exitcode, 0);
+
+		if (rc < 0) {
+			warn(path, "Waitpid error\n");
+			return;
+		}
+
+		if WEXITSTATUS(exitcode) {
+			warn(path, "Exited with an error\n");
+			break;
+		}
+
+		warn(path, "Was killed or exited without an error; restarting...\n");
+	}
+
+	// Hang
+	while (1) {
+	}
+}
+
+void wait_for(char* path, char* argv[], char* envp[]) {
+
+	// Version of warn() that takes two arguments
+	// Abusing the function scope
+	void warn(char* origin, char* message) {
+		printf(COLOR_YELLOW "[WARNING] [");
+		printf(origin);
+		printf("] ");
+		printf(message);
+		printf(COLOR_RESET);
+	}
+
+	int exitcode = 0;
+
+	pid_t pid = fork();
+
+	if (pid < 0) {
+		warn(path, "Fork error\n");
+		return;
+	}
+
+	// Child: run the command
+	if (pid == 0) {
+		int rc = execve(path, argv, envp);
+
+		if (rc) {
+			warn(path, "Execve error\n");
+			
+			// Hang
+			while (1) {
+			}
+		}
+
+		// Should never reach
+		err("Flow bugcheck");
+	}
+
+	// Parent: wait for child to exit
+	int rc = waitpid(pid, &exitcode, 0);
+
+	if (rc < 0) {
+		warn(path, "Waitpid error\n");
+		return;
+	}
+
+	if WEXITSTATUS(exitcode)
+		warn(path, "Exited with an error\n");
+}
+
+
 //
 // Disk image mounts
 //
@@ -187,7 +305,7 @@ void mount_sysfs() {
 
 // Will make a fresh mount of /run
 // Repicates the mount structure WSL1 uses
-// `sshd` and `watchdog` want it to store temporary files
+// `watchdog` wants it read-write to store temporary files
 void mount_run() {
 	int rc = 0;
 
@@ -269,13 +387,26 @@ void exec_shell() {
 
 
 //
+// Set hostname
+//
+
+void exec_hostname() {
+	char* argv[] = { "hostname", "-F", "/etc/hostname", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/bin/hostname", argv, envp);
+}
+
+
+//
 // Sysctl
 //
 
 // Usually this is done using `sysctl`
 // But we can avoid using it, saving us a fork()
 void apply_sysctl() {
-	echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 			// Switch to a better congestion control algorithm
+	//echo("ondemand", "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor");	// We may have booted with `performance` or `powersave`
+	//echo("bbr", "/proc/sys/net/ipv4/tcp_congestion_control"); 			// Switch to a better congestion control algorithm
 	echo("1", "/proc/sys/net/ipv4/ip_forward");					// Allow packets to jump between interfaces
 }
 
@@ -328,6 +459,40 @@ void start_every_tty() {
 
 
 //
+// SSH server
+//
+
+void exec_ssh_keygen() {
+	char* argv[] = { "ssh-keygen", "-A", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/bin/ssh-keygen", argv, envp);
+}
+
+void start_ssh() {
+	char* argv[] = { "/sbin/sshd", "-D", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	// The "privilege separation directory"
+	int rc = mkdir("/run/sshd", 0755);
+
+	if (rc)
+		warn("Failed to create [/run/sshd]\n");
+
+	// Ensure we have host keys
+	exec_ssh_keygen();
+
+	pid_t pid = fork();
+
+	if (pid < 0)
+		warn("start_ssh: fork error\n");
+
+	if (pid == 0)
+		keep_restarting("/sbin/sshd", argv, envp);
+}
+
+
+//
 // Shutdown sequence
 //
 
@@ -349,10 +514,6 @@ void unmount_root() {
 int main() {
 	printf("= = = Micro Init = = =\n");
 
-
-	// If you call set_root() from PID 2 after the fork():
-	// PID 1 will stay at true root, thus allowing you to escape the chroot via `cd /proc/1/root`
-	// This is useful to inspect the real root
 	//mount_ext2_image();
 	//bind_dev();
 	//set_root();
@@ -374,10 +535,12 @@ int main() {
 		symlink_dev_fd();
 
 		// Oneshot operations
+		exec_hostname();
 		apply_sysctl();
 
 		// Start restart-capable stuff
 		start_every_tty();
+		start_ssh();
 
 		// Transfer over to bash
 		exec_shell();
@@ -395,7 +558,7 @@ int main() {
 
 		printf(COLOR_YELLOW "It is now safe to turn off your computer\n" COLOR_RESET);
 
-		while (1) {
+		while (1) { 
 			// Wait indefinitely
 		}
 	}
