@@ -102,7 +102,7 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 
 			if (rc) {
 				warn(path, "Execve error\n");
-				
+
 				// Hang
 				while (1) {
 				}
@@ -160,7 +160,7 @@ void wait_for(char* path, char* argv[], char* envp[]) {
 
 		if (rc) {
 			warn(path, "Execve error\n");
-			
+
 			// Hang
 			while (1) {
 			}
@@ -305,7 +305,7 @@ void mount_sysfs() {
 
 // Will make a fresh mount of /run
 // Repicates the mount structure WSL1 uses
-// `watchdog` wants it read-write to store temporary files
+// `sshd` and `watchdog` want it to store temporary files
 void mount_run() {
 	int rc = 0;
 
@@ -390,6 +390,7 @@ void exec_shell() {
 // Set hostname
 //
 
+// `sudo` is unhappy without a valid hostname set
 void exec_hostname() {
 	char* argv[] = { "hostname", "-F", "/etc/hostname", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
@@ -514,6 +515,9 @@ void unmount_root() {
 int main() {
 	printf("= = = Micro Init = = =\n");
 
+	// If you call set_root() from PID 2 after the fork():
+	// PID 1 will stay at true root, thus allowing you to escape the chroot via `cd /proc/1/root`
+	// This is useful to inspect the real root
 	//mount_ext2_image();
 	//bind_dev();
 	//set_root();
@@ -558,7 +562,7 @@ int main() {
 
 		printf(COLOR_YELLOW "It is now safe to turn off your computer\n" COLOR_RESET);
 
-		while (1) { 
+		while (1) {
 			// Wait indefinitely
 		}
 	}
