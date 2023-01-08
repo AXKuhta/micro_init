@@ -387,10 +387,25 @@ void exec_shell() {
 
 
 //
+// Loopback
+//
+
+// This is required for nginx or other TCP servers to be reachable via 127.0.0.1
+// Sanity check: `ssh 127.0.0.1` should work
+void activate_loopback() {
+	char* argv[] = { "ip", "link", "set", "up", "dev", "lo", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/bin/ip", argv, envp);
+}
+
+
+//
 // Set hostname
 //
 
 // `sudo` is unhappy without a valid hostname set
+// Sanity check: `ssh localhost` should work
 void exec_hostname() {
 	char* argv[] = { "hostname", "-F", "/etc/hostname", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
@@ -539,6 +554,7 @@ int main() {
 		symlink_dev_fd();
 
 		// Oneshot operations
+		activate_loopback();
 		exec_hostname();
 		apply_sysctl();
 
