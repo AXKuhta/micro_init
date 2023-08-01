@@ -598,11 +598,23 @@ void start_ssh() {
 // Shutdown sequence
 //
 
+void terminate_processes() {
+	printf("Terminating processes...\n");
+
+	kill(-1, 9);
+
+	while (wait(0) > 0) {
+		// ...
+	}
+}
+
 #define MNT_DETACH 2
 
 // For clean shutdowns
 void unmount_root() {
-	int rc = umount2("/", MNT_DETACH);
+	printf("Unmounting root...\n");
+
+	int rc = umount2("/", 0);
 
 	if (rc)
 		err("unmount_root: failed to unmount\n");
@@ -661,15 +673,11 @@ int main() {
 		waitpid(shell_pid, NULL, 0);
 
 		printf("Initial shell exited, entering shutdown sequence\n");
-		printf("Unmounting root...\n");
 
+		terminate_processes();
 		unmount_root();
 
-		printf(COLOR_YELLOW "It is now safe to turn off your computer\n" COLOR_RESET);
-
-		while (1) { 
-			// Wait indefinitely
-		}
+		reboot(LINUX_REBOOT_CMD_RESTART);
 	}
 
 
