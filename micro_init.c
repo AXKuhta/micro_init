@@ -10,6 +10,10 @@
 // [OPTIONAL] `-fno-asynchronous-unwind-tables` will remove `.eh_frame` section from the file, saving 2 KB
 // [OPTIONAL] `-lgcc` (Must come last) will allow to use __builtin_strlen(), which nolibc can benefit from
 
+// Hot swap procedure while testing:
+// mv /micro_init /micro_init_old (Yes, this works)
+// cp micro_init /
+
 // You can take nolibc.h from here:
 // https://github.com/torvalds/linux/blob/master/tools/include/nolibc/nolibc.h
 #include "nolibc.h"
