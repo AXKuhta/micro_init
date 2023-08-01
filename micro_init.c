@@ -102,14 +102,11 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 
 			if (rc) {
 				warn(path, "Execve error\n");
-				
-				// Hang
-				while (1) {
-				}
+				exit(-1);
 			}
 
 			// Should never reach
-			err("Flow bugcheck");
+			err("Flow bugcheck\n");
 		}
 
 		// Parent: wait for child to exit
@@ -128,9 +125,7 @@ void keep_restarting(char* path, char* argv[], char* envp[]) {
 		warn(path, "Was killed or exited without an error; restarting...\n");
 	}
 
-	// Hang
-	while (1) {
-	}
+	exit(-1);
 }
 
 void wait_for(char* path, char* argv[], char* envp[]) {
@@ -160,14 +155,11 @@ void wait_for(char* path, char* argv[], char* envp[]) {
 
 		if (rc) {
 			warn(path, "Execve error\n");
-			
-			// Hang
-			while (1) {
-			}
+			exit(-1);
 		}
 
 		// Should never reach
-		err("Flow bugcheck");
+		err("Flow bugcheck\n");
 	}
 
 	// Parent: wait for child to exit
