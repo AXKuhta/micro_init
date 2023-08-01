@@ -644,6 +644,9 @@ void unmount_root() {
 int main() {
 	printf("= = = Micro Init = = =\n");
 
+	// If you call set_root() from PID 2 after the fork():
+	// PID 1 will stay at true root, thus allowing you to escape the chroot via `cd /proc/1/root`
+	// This is useful to inspect the real root
 	//mount_ext2_image();
 	//bind_dev();
 	//set_root();
