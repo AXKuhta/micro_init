@@ -424,6 +424,20 @@ void exec_modprobe() {
 
 
 //
+// Loopback
+//
+
+// This is required for nginx or other TCP servers to be reachable via 127.0.0.1
+// Sanity check: `ssh 127.0.0.1` should work
+void activate_loopback() {
+	char* argv[] = { "ip", "link", "set", "up", "dev", "lo", NULL };
+	char* envp[] = { "HOME=/", "TERM=linux", NULL };
+
+	wait_for("/bin/ip", argv, envp);
+}
+
+
+//
 // Set hostname
 //
 
@@ -652,6 +666,7 @@ int main() {
 		symlink_dev_fd();
 
 		// Oneshot operations
+		activate_loopback();
 		exec_modprobe();
 		exec_hostname();
 		apply_sysctl();
