@@ -297,7 +297,7 @@ void mount_sysfs() {
 
 // Will make a fresh mount of /run
 // Repicates the mount structure WSL1 uses
-// `watchdog` wants it read-write to store temporary files
+// `sshd` and `watchdog` want it to store temporary files
 void mount_run() {
 	int rc = 0;
 
