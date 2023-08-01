@@ -441,6 +441,8 @@ void activate_loopback() {
 // Set hostname
 //
 
+// `sudo` is unhappy without a valid hostname set
+// Sanity check: `ssh localhost` should work
 void exec_hostname() {
 	char* argv[] = { "hostname", "-F", "/etc/hostname", NULL };
 	char* envp[] = { "HOME=/", "TERM=linux", NULL };
