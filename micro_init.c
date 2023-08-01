@@ -331,6 +331,17 @@ void mount_run() {
 	if (rc) err("Error mounting [/run/user]\n");
 }
 
+// Will make a fresh mount of /var/log
+// Log to RAM, no way to persist logs on read-only system
+// Required by `watchdog` and used by `apt`
+void mount_var_log() {
+	int rc = 0;
+
+	rc = mount("tmpfs", "/var/log", "tmpfs", 0, NULL);
+	if (rc) err("Error mounting [/var/log]\n"
+				"Perhaps /var/log is missing in the rootfs you're using?");
+}
+
 
 //
 // Device mounts
@@ -667,6 +678,7 @@ int main() {
 		mount_procfs();
 		mount_sysfs();
 		mount_run();
+		mount_var_log();
 
 		// Optional mounts
 		mount_boot();
