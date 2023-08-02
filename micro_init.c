@@ -589,7 +589,8 @@ int main() {
 		// But let's just make sure that we can't continue from this location
 		return 0;
 	} else {
-		waitpid(shell_pid, NULL, 0);
+		while (shell_pid != wait(NULL)) {
+		}
 
 		printf("Initial shell exited, entering shutdown sequence\n");
 
